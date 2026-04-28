@@ -35,7 +35,7 @@ A modern, professional meeting scheduler web application with real-time notifica
 
 ### Option 2: Local Development
 ```bash
-git clone https://github.com/yourusername/meeting-scheduler.git
+git clone https://github.com/SUPRAJ29DB/meeting-scheduler.git
 cd meeting-scheduler
 # Open index.html in your browser
 ```
