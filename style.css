@@ -148,6 +148,58 @@ h1::before {
     animation: underlineSlide 3s ease-in-out infinite;
 }
 
+h2 {
+    color: white;
+    font-size: 1.8rem;
+    font-weight: 700;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3),
+                 0 0 30px rgba(255, 255, 255, 0.2);
+    letter-spacing: -0.5px;
+    z-index: 10;
+    margin-bottom: 15px;
+    text-align: center;
+    animation: professionalTitleAnimation 5s cubic-bezier(0.36, 0, 0.66, 1) infinite;
+    position: relative;
+}
+
+h2::before {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+    animation: underlineSlide 3s ease-in-out infinite;
+}
+
+.test-btn {
+    display: block;
+    margin: 0 auto 30px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 6px 20px rgba(79, 172, 254, 0.4);
+    z-index: 10;
+    position: relative;
+}
+
+.test-btn:hover {
+    transform: translateY(-3px) scale(1.08);
+    box-shadow: 0 10px 30px rgba(79, 172, 254, 0.7);
+}
+
+.test-btn:active {
+    transform: translateY(-1px) scale(1.05);
+}
+
 @keyframes professionalTitleAnimation {
     0%, 100% {
         text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3),

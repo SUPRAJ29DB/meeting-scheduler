@@ -21,6 +21,12 @@ class MeetingScheduler {
     setupEventListeners() {
         const form = document.getElementById('meeting-form');
         form.addEventListener('submit', (e) => this.handleFormSubmit(e));
+
+        // Add test notification button
+        const testBtn = document.getElementById('test-notification-btn');
+        if (testBtn) {
+            testBtn.addEventListener('click', () => this.testNotification());
+        }
     }
 
     // Request permission for system notifications
@@ -140,7 +146,7 @@ self.addEventListener('push', event => {
         const timeDiff = meetingDateTime - now;
         const minutesUntil = Math.floor(timeDiff / 60000);
         
-        const isUpcoming = timeDiff > 0 && timeDiff <= 5 * 60000;
+        const isUpcoming = timeDiff > 0 && timeDiff <= 1 * 60000;
         const isPast = timeDiff < 0;
 
         let timeStatus = '';
@@ -217,8 +223,8 @@ self.addEventListener('push', event => {
             const timeDiff = meetingDateTime - now;
             const minutesUntil = Math.floor(timeDiff / 60000);
 
-            // Show notification if meeting is within 5 minutes and not yet notified
-            if (timeDiff > 0 && timeDiff <= 5 * 60000 && !this.notifiedMeetings.has(meeting.id)) {
+            // Show notification if meeting is within 1 minute and not yet notified
+            if (timeDiff > 0 && timeDiff <= 1 * 60000 && !this.notifiedMeetings.has(meeting.id)) {
                 this.showNotification(meeting, minutesUntil);
                 this.sendSystemNotification(meeting, minutesUntil);
                 this.notifiedMeetings.add(meeting.id);
@@ -261,53 +267,64 @@ self.addEventListener('push', event => {
 
     // System notification - shows on phone & other windows
     sendSystemNotification(meeting, minutesUntil) {
-        if ('Notification' in window && Notification.permission === 'granted') {
-            let title = `📅 Meeting: ${meeting.title}`;
-            let message = '';
+        if ('Notification' in window) {
+            if (Notification.permission === 'granted') {
+                let title = `📅 Meeting: ${meeting.title}`;
+                let message = '';
 
-            if (minutesUntil > 0) {
-                message = `Starts in ${minutesUntil} minute${minutesUntil > 1 ? 's' : ''} at ${meeting.time}`;
-            } else {
-                message = `Starting NOW! at ${meeting.time}`;
-            }
-
-            const options = {
-                body: message,
-                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="80" font-size="80" text-anchor="middle">📅</text></svg>',
-                badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23667eea"/><text x="50" y="70" font-size="50" text-anchor="middle" fill="white">!</text></svg>',
-                tag: `meeting-${meeting.id}`,
-                requireInteraction: minutesUntil <= 2,
-                vibrate: [200, 100, 200, 100, 200],
-                timestamp: Date.now(),
-                actions: [
-                    {
-                        action: 'open',
-                        title: 'Got it! 👍'
-                    }
-                ]
-            };
-
-            const notification = new Notification(title, options);
-
-            // Handle notification click
-            notification.onclick = () => {
-                notification.close();
-                if (window) {
-                    window.focus();
+                if (minutesUntil > 0) {
+                    message = `Starts in ${minutesUntil} minute${minutesUntil > 1 ? 's' : ''} at ${meeting.time}`;
+                } else {
+                    message = `Starting NOW! at ${meeting.time}`;
                 }
-            };
 
-            // Close notification after 15 seconds
-            setTimeout(() => notification.close(), 15000);
+                const options = {
+                    body: message,
+                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="80" font-size="80" text-anchor="middle">📅</text></svg>',
+                    badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23667eea"/><text x="50" y="70" font-size="50" text-anchor="middle" fill="white">!</text></svg>',
+                    tag: `meeting-${meeting.id}`,
+                    requireInteraction: minutesUntil <= 1,
+                    vibrate: [200, 100, 200, 100, 200],
+                    timestamp: Date.now(),
+                    actions: [
+                        {
+                            action: 'open',
+                            title: 'Got it! 👍'
+                        }
+                    ]
+                };
+
+                const notification = new Notification(title, options);
+                console.log('🔔 System notification sent:', title);
+
+                // Handle notification click
+                notification.onclick = () => {
+                    notification.close();
+                    if (window) {
+                        window.focus();
+                    }
+                };
+
+                // Close notification after 15 seconds
+                setTimeout(() => notification.close(), 15000);
+            } else if (Notification.permission === 'default') {
+                console.log('⚠️ Notification permission not granted. Requesting...');
+                this.requestNotificationPermission();
+            } else {
+                console.log('❌ Notification permission denied');
+            }
+        } else {
+            console.log('❌ Notifications not supported');
         }
     }
 
     playNotificationSound() {
-        // Create a multiple beep sound using Web Audio API
+        // Create custom notification sound with specified frequencies
         try {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             
-            const playBeep = (frequency, duration, startTime) => {
+            // Custom frequency sound
+            const playFrequency = (frequency, duration, startTime, volume = 0.8) => {
                 const oscillator = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
 
@@ -317,19 +334,29 @@ self.addEventListener('push', event => {
                 oscillator.frequency.value = frequency;
                 oscillator.type = 'sine';
 
-                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
 
                 oscillator.start(audioContext.currentTime + startTime);
                 oscillator.stop(audioContext.currentTime + startTime + duration);
             };
 
-            // Play 3 beeps
-            playBeep(800, 0.2, 0);
-            playBeep(900, 0.2, 0.3);
-            playBeep(800, 0.3, 0.6);
+            // Custom frequency pattern: 1600Hz → 1000Hz → 400Hz → 200Hz (descending)
+            // Each tone plays for 1 second individually
+            playFrequency(1600, 1.0, 0, 0.85);      // Tone 1: 1600Hz for 1.0s
+            playFrequency(1000, 1.0, 1.1, 0.85);    // Tone 2: 1000Hz for 1.0s (starts at 1.1s)
+            playFrequency(400, 1.0, 2.2, 0.85);     // Tone 3: 400Hz for 1.0s (starts at 2.2s)
+            playFrequency(200, 1.0, 3.3, 0.85);     // Tone 4: 200Hz for 1.0s (starts at 3.3s)
+
+            console.log('🎵 Custom frequency notification sound played: Each tone 1 second (Total: 4.3s) - 1600Hz → 1000Hz → 400Hz → 200Hz');
         } catch (e) {
-            console.log('Audio notification not available');
+            console.log('Audio notification not available:', e.message);
+        }
+
+        // Strong vibration feedback for mobile devices
+        if (navigator.vibrate) {
+            navigator.vibrate([150, 100, 150, 100, 150, 100, 200]);
+            console.log('📳 Vibration triggered');
         }
     }
 
@@ -345,6 +372,23 @@ self.addEventListener('push', event => {
 
     dismissNotification() {
         document.getElementById('notification-popup').classList.add('hidden');
+    }
+
+    // Test notification - manual trigger
+    testNotification() {
+        console.log('🧪 Testing notification system...');
+        
+        const testMeeting = {
+            id: Date.now(),
+            title: 'Test Meeting',
+            time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+        };
+
+        this.showNotification(testMeeting, 0);
+        this.sendSystemNotification(testMeeting, 0);
+        this.playNotificationSound();
+        
+        console.log('✅ Test notification triggered!');
     }
 
     stopChecking() {
