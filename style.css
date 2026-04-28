@@ -200,6 +200,26 @@ h2::before {
     transform: translateY(-1px) scale(1.05);
 }
 
+.secondary-btn {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 14px rgba(102, 126, 234, 0.35);
+}
+
+.secondary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+}
+
 @keyframes professionalTitleAnimation {
     0%, 100% {
         text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3),
@@ -534,6 +554,57 @@ button:active {
     -webkit-text-fill-color: transparent;
     background-clip: text;
     animation: titleEnter 0.6s ease-out;
+}
+
+.meeting-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.meeting-links a {
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.meet-link {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(79, 172, 254, 0.3);
+}
+
+.host-link {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.whatsapp-link {
+    background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
+.sms-link {
+    background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+    color: #2b2b2b;
+    box-shadow: 0 4px 12px rgba(253, 160, 133, 0.35);
+}
+
+.meeting-links a:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
+}
+
+.meeting-note {
+    margin-top: 6px;
+    font-size: 0.75rem;
+    color: #777;
 }
 
 @keyframes titleEnter {

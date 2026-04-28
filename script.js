@@ -3,9 +3,12 @@
 class MeetingScheduler {
     constructor() {
         this.meetings = this.loadMeetings();
-        this.notifiedMeetings = new Set();
+        // Track sent notifications per meeting by threshold (e.g. 5, 1)
+        this.notifiedMeetings = new Map();
         this.checkInterval = null;
         this.isPageVisible = true;
+        this.audioContext = null; // shared AudioContext to comply with autoplay policies
+        this.audioUnlocked = false;
         this.init();
     }
 
@@ -14,6 +17,8 @@ class MeetingScheduler {
         this.requestNotificationPermission();
         this.registerServiceWorker();
         this.setupVisibilityListener();
+        this.setupAudioUnlock();
+        this.setDefaultMeetLink();
         this.renderMeetings();
         this.startCheckingMeetings();
     }
@@ -27,6 +32,46 @@ class MeetingScheduler {
         if (testBtn) {
             testBtn.addEventListener('click', () => this.testNotification());
         }
+
+        const openMeetBtn = document.getElementById('open-meet-btn');
+        if (openMeetBtn) {
+            openMeetBtn.addEventListener('click', () => this.openGoogleMeet());
+        }
+    }
+
+    // Unlock/resume AudioContext on first user gesture (required by many browsers/hosts)
+    setupAudioUnlock() {
+        const unlock = async () => {
+            if (!this.audioContext) {
+                try {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    console.log('AudioContext creation failed:', e && e.message);
+                    return;
+                }
+            }
+
+            if (this.audioContext.state === 'suspended') {
+                try {
+                    await this.audioContext.resume();
+                    console.log('AudioContext resumed after user gesture');
+                } catch (e) {
+                    console.log('AudioContext resume failed:', e && e.message);
+                }
+            }
+
+            this.audioUnlocked = true;
+
+            // remove listeners (we used once: true below but ensure cleanup)
+            document.removeEventListener('click', unlock);
+            document.removeEventListener('keydown', unlock);
+            document.removeEventListener('touchstart', unlock);
+        };
+
+        // Add one-time listeners to resume audio on first user gesture
+        document.addEventListener('click', unlock, { once: true, passive: true });
+        document.addEventListener('keydown', unlock, { once: true, passive: true });
+        document.addEventListener('touchstart', unlock, { once: true, passive: true });
     }
 
     // Request permission for system notifications
@@ -76,8 +121,17 @@ self.addEventListener('push', event => {
         const date = document.getElementById('date').value;
         const time = document.getElementById('time').value;
         const duration = parseInt(document.getElementById('duration').value);
+        const phone = document.getElementById('phone').value;
+        const meetLinkInput = document.getElementById('meet-link');
+        let meetLink = meetLinkInput.value;
 
-        if (!title || !date || !time || !duration) {
+        if (!meetLink) {
+            meetLink = 'https://meet.google.com/new';
+            meetLinkInput.value = meetLink;
+            this.openGoogleMeet();
+        }
+
+        if (!title || !date || !time || !duration || !phone || !meetLink) {
             this.showAlert('Please fill in all fields');
             return;
         }
@@ -88,6 +142,8 @@ self.addEventListener('push', event => {
             date,
             time,
             duration,
+            phone: this.normalizePhone(phone),
+            meetLink: meetLink.trim(),
             createdAt: new Date().toISOString()
         };
 
@@ -146,7 +202,7 @@ self.addEventListener('push', event => {
         const timeDiff = meetingDateTime - now;
         const minutesUntil = Math.floor(timeDiff / 60000);
         
-        const isUpcoming = timeDiff > 0 && timeDiff <= 1 * 60000;
+        const isUpcoming = timeDiff > 0 && timeDiff <= 5 * 60000;
         const isPast = timeDiff < 0;
 
         let timeStatus = '';
@@ -165,6 +221,21 @@ self.addEventListener('push', event => {
             day: 'numeric'
         });
 
+        const hasMeetLink = Boolean(meeting.meetLink);
+        const hasPhone = Boolean(meeting.phone);
+
+        const linksHtml = hasMeetLink || hasPhone ? `
+            <div class="meeting-links">
+                ${hasMeetLink ? `<a class="meet-link" href="${this.escapeHtml(meeting.meetLink)}" target="_blank" rel="noopener">Open Meet</a>` : ''}
+                ${hasMeetLink ? `<a class="host-link" href="${this.escapeHtml(meeting.meetLink)}" target="_blank" rel="noopener">Open as Host</a>` : ''}
+                ${hasPhone && hasMeetLink ? `<a class="whatsapp-link" href="${this.buildWhatsAppLink(meeting)}" target="_blank" rel="noopener">Send WhatsApp</a>` : ''}
+                ${hasPhone && hasMeetLink ? `<a class="sms-link" href="${this.buildSmsLink(meeting)}">Send SMS</a>` : ''}
+            </div>
+            <div class="meeting-note">
+                Auto-admit is controlled by the host's Google Meet settings. Open as host to admit others.
+            </div>
+        ` : '';
+
         return `
             <div class="meeting-item ${isUpcoming ? 'upcoming' : ''}">
                 <button class="remove-btn" data-id="${meeting.id}" title="Remove meeting">×</button>
@@ -179,6 +250,7 @@ self.addEventListener('push', event => {
                     <div style="color: #999; font-size: 0.85rem; margin-top: 5px;">
                         Ends at ${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                     </div>
+                    ${linksHtml}
                 </div>
             </div>
         `;
@@ -221,17 +293,34 @@ self.addEventListener('push', event => {
         this.meetings.forEach(meeting => {
             const meetingDateTime = new Date(`${meeting.date}T${meeting.time}`);
             const timeDiff = meetingDateTime - now;
-            const minutesUntil = Math.floor(timeDiff / 60000);
+            const secondsUntil = Math.floor(timeDiff / 1000);
+            const minutesUntil = Math.ceil(secondsUntil / 60);
 
-            // Show notification if meeting is within 1 minute and not yet notified
-            if (timeDiff > 0 && timeDiff <= 1 * 60000 && !this.notifiedMeetings.has(meeting.id)) {
-                this.showNotification(meeting, minutesUntil);
-                this.sendSystemNotification(meeting, minutesUntil);
-                this.notifiedMeetings.add(meeting.id);
-                this.playNotificationSound();
+            if (timeDiff > 0) {
+                // Ensure map entry exists
+                if (!this.notifiedMeetings.has(meeting.id)) {
+                    this.notifiedMeetings.set(meeting.id, new Set());
+                }
+
+                const sentSet = this.notifiedMeetings.get(meeting.id);
+
+                // 5-minute notification (informational)
+                if (secondsUntil <= 300 && secondsUntil > 60 && !sentSet.has(5)) {
+                    this.showNotification(meeting, minutesUntil);
+                    this.sendSystemNotification(meeting, minutesUntil);
+                    sentSet.add(5);
+                }
+
+                // 1-minute notification (attention: popup + sound)
+                if (secondsUntil <= 60 && !sentSet.has(1)) {
+                    this.showNotification(meeting, minutesUntil);
+                    this.sendSystemNotification(meeting, minutesUntil);
+                    this.playNotificationSound();
+                    sentSet.add(1);
+                }
             }
 
-            // Clear notification flag after meeting time has passed
+            // Clear notification flags after meeting time has passed
             if (timeDiff < 0) {
                 this.notifiedMeetings.delete(meeting.id);
             }
@@ -319,38 +408,58 @@ self.addEventListener('push', event => {
     }
 
     playNotificationSound() {
-        // Create custom notification sound with specified frequencies
+        // Use shared AudioContext and resume if suspended (fixes autoplay blocking on hosts)
         try {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            
-            // Custom frequency sound
-            const playFrequency = (frequency, duration, startTime, volume = 0.8) => {
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
 
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
+            const startPlayback = () => {
+                const audioContext = this.audioContext;
 
-                oscillator.frequency.value = frequency;
-                oscillator.type = 'sine';
+                // Custom frequency sound
+                const playFrequency = (frequency, duration, startTime, volume = 0.8) => {
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
 
-                gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
 
-                oscillator.start(audioContext.currentTime + startTime);
-                oscillator.stop(audioContext.currentTime + startTime + duration);
+                    oscillator.frequency.value = frequency;
+                    oscillator.type = 'sine';
+
+                    gainNode.gain.setValueAtTime(volume, audioContext.currentTime + startTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + startTime + duration);
+
+                    oscillator.start(audioContext.currentTime + startTime);
+                    oscillator.stop(audioContext.currentTime + startTime + duration);
+                };
+
+                // Custom frequency pattern: 1600Hz → 1000Hz → 400Hz → 200Hz (descending)
+                // Each tone plays for 1 second individually with small gaps
+                playFrequency(1600, 1.0, 0, 0.85);      // Tone 1: 1600Hz for 1.0s
+                playFrequency(1000, 1.0, 1.1, 0.85);    // Tone 2: 1000Hz for 1.0s (starts at 1.1s)
+                playFrequency(400, 1.0, 2.2, 0.85);     // Tone 3: 400Hz for 1.0s (starts at 2.2s)
+                playFrequency(200, 1.0, 3.3, 0.85);     // Tone 4: 200Hz for 1.0s (starts at 3.3s)
+
+                console.log('🎵 Custom frequency notification sound played (shared AudioContext)');
             };
 
-            // Custom frequency pattern: 1600Hz → 1000Hz → 400Hz → 200Hz (descending)
-            // Each tone plays for 1 second individually
-            playFrequency(1600, 1.0, 0, 0.85);      // Tone 1: 1600Hz for 1.0s
-            playFrequency(1000, 1.0, 1.1, 0.85);    // Tone 2: 1000Hz for 1.0s (starts at 1.1s)
-            playFrequency(500, 1.0, 2.2, 0.85);     // Tone 3: 400Hz for 1.0s (starts at 2.2s)
-            playFrequency(200, 1.0, 3.3, 0.85);     // Tone 4: 200Hz for 1.0s (starts at 3.3s)
-
-            console.log('🎵 Custom frequency notification sound played: Each tone 1 second (Total: 4.3s) - 1600Hz → 1000Hz → 400Hz → 200Hz');
+            if (this.audioContext.state === 'suspended') {
+                // Try to resume, then play
+                this.audioContext.resume().then(() => {
+                    this.audioUnlocked = true;
+                    startPlayback();
+                }).catch(err => {
+                    console.log('AudioContext resume failed:', err && err.message);
+                    // attempt playback anyway
+                    startPlayback();
+                });
+            } else {
+                startPlayback();
+            }
         } catch (e) {
-            console.log('Audio notification not available:', e.message);
+            console.log('Audio notification not available:', e && e.message);
         }
 
         // Strong vibration feedback for mobile devices
@@ -362,6 +471,36 @@ self.addEventListener('push', event => {
 
     showAlert(message) {
         alert(message);
+    }
+
+    openGoogleMeet() {
+        window.open('https://meet.google.com/new', '_blank', 'noopener');
+        this.showAlert('A new Google Meet tab opened. Copy the Meet link and paste it into the "Google Meet Link" field.');
+    }
+
+    setDefaultMeetLink() {
+        const meetLinkInput = document.getElementById('meet-link');
+        if (meetLinkInput && !meetLinkInput.value) {
+            meetLinkInput.value = 'https://meet.google.com/new';
+        }
+    }
+
+    normalizePhone(phone) {
+        return phone.replace(/[^0-9]/g, '');
+    }
+
+    buildWhatsAppLink(meeting) {
+        const phone = this.normalizePhone(meeting.phone || '');
+        const message = `Meeting: ${meeting.title}\nTime: ${meeting.date} ${meeting.time}\nDuration: ${meeting.duration} minutes\nJoin: ${meeting.meetLink}`;
+        const encoded = encodeURIComponent(message);
+        return `https://wa.me/${phone}?text=${encoded}`;
+    }
+
+    buildSmsLink(meeting) {
+        const phone = this.normalizePhone(meeting.phone || '');
+        const message = `Meeting: ${meeting.title}\nTime: ${meeting.date} ${meeting.time}\nDuration: ${meeting.duration} minutes\nJoin: ${meeting.meetLink}`;
+        const encoded = encodeURIComponent(message);
+        return `sms:${phone}?body=${encoded}`;
     }
 
     escapeHtml(text) {
@@ -381,7 +520,11 @@ self.addEventListener('push', event => {
         const testMeeting = {
             id: Date.now(),
             title: 'Test Meeting',
-            time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+            time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            date: new Date().toISOString().slice(0, 10),
+            duration: 15,
+            phone: '919876543210',
+            meetLink: 'https://meet.google.com/new'
         };
 
         this.showNotification(testMeeting, 0);

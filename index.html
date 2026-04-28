@@ -35,6 +35,13 @@
                 <label for="duration">Duration (minutes):</label>
                 <input type="number" id="duration" name="duration" min="1" required><br><br>
 
+                <label for="phone">WhatsApp Number (with country code):</label>
+                <input type="tel" id="phone" name="phone" placeholder="e.g., 919876543210" pattern="[0-9+ ]+" required><br><br>
+
+                <label for="meet-link">Google Meet Link:</label>
+                <input type="url" id="meet-link" name="meet-link" placeholder="https://meet.google.com/xxx-xxxx-xxx" required><br>
+                <button type="button" id="open-meet-btn" class="secondary-btn">Open Google Meet</button><br><br>
+
                 <button type="submit">Schedule Meeting</button>
             </form>
         </div>
