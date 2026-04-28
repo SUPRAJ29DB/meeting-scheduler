@@ -87,6 +87,7 @@ This is a **static site** - no backend required! Host it on:
    - Push to `main` branch
    - Enable in repository Settings
    - Access at: `https://yourusername.github.io/meeting-scheduler`
+   - https://supraj29db.github.io/meeting-scheduler/
 
 2. **Netlify** (Free)
    - Connect your GitHub repo
