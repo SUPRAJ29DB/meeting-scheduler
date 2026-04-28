@@ -83,21 +83,19 @@ cd meeting-scheduler
 
 This is a **static site** - no backend required! Host it on:
 
-1. **GitHub Pages** (Free)
-   - Push to `main` branch
-   - Enable in repository Settings
-   - Access at: `https://yourusername.github.io/meeting-scheduler`
-   - https://supraj29db.github.io/meeting-scheduler/
+1. **GitHub Pages**
+   
+   - Access at:  https://supraj29db.github.io/meeting-scheduler/
 
-2. **Netlify** (Free)
-   - Connect your GitHub repo
-   - Auto-deploys on push
+2. **Netlify**
+   
+  - Access at: https://69f0e1400e780c7a78622b1f--nimble-pastelito-aa6110.netlify.app/
 
-3. **Vercel** (Free)
-   - Import from GitHub
-   - Zero-config deployment
+4. **Vercel** 
+   
+  - Access at: https://meeting-scheduler-dz6w-5nkrgc5tk-supraj29dbs-projects.vercel.app/
 
-4. **Any Static Host** - AWS S3, Firebase, etc.
+6. **Any Static Host** - AWS S3, Firebase, etc.
 
 ## 📝 File Structure
 
@@ -122,7 +120,7 @@ meeting-scheduler/
 
 ## 📄 License
 
-This project is open source and available under the MIT License.
+This project is open source.
 
 ## 👨‍💻 Author
 
