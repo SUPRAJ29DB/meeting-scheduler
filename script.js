@@ -194,6 +194,28 @@ self.addEventListener('push', event => {
                 this.removeMeeting(id);
             });
         });
+
+        // Ensure action links open reliably (some hosts/browsers block direct link opens)
+        document.querySelectorAll('.meet-link, .host-link, .whatsapp-link, .sms-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                const href = link.getAttribute('href');
+                if (!href) {
+                    return;
+                }
+
+                // SMS links usually only work on mobile devices
+                if (href.startsWith('sms:')) {
+                    this.showAlert('SMS links open on mobile devices. If you are on desktop, use WhatsApp or copy the link.');
+                }
+
+                const opened = window.open(href, link.getAttribute('target') || '_blank', 'noopener');
+                if (!opened) {
+                    this.showAlert('Popup blocked. Please allow popups for this site and try again.');
+                }
+
+                e.preventDefault();
+            });
+        });
     }
 
     createMeetingElement(meeting) {
