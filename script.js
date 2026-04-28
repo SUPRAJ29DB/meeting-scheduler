@@ -345,7 +345,7 @@ self.addEventListener('push', event => {
             // Each tone plays for 1 second individually
             playFrequency(1600, 1.0, 0, 0.85);      // Tone 1: 1600Hz for 1.0s
             playFrequency(1000, 1.0, 1.1, 0.85);    // Tone 2: 1000Hz for 1.0s (starts at 1.1s)
-            playFrequency(400, 1.0, 2.2, 0.85);     // Tone 3: 400Hz for 1.0s (starts at 2.2s)
+            playFrequency(500, 1.0, 2.2, 0.85);     // Tone 3: 400Hz for 1.0s (starts at 2.2s)
             playFrequency(200, 1.0, 3.3, 0.85);     // Tone 4: 200Hz for 1.0s (starts at 3.3s)
 
             console.log('🎵 Custom frequency notification sound played: Each tone 1 second (Total: 4.3s) - 1600Hz → 1000Hz → 400Hz → 200Hz');
