@@ -123,7 +123,7 @@ self.addEventListener('push', event => {
         const duration = parseInt(document.getElementById('duration').value);
         const phone = document.getElementById('phone').value;
         const meetLinkInput = document.getElementById('meet-link');
-        let meetLink = meetLinkInput.value;
+        let meetLink = this.normalizeMeetLink(meetLinkInput.value);
 
         if (!meetLink) {
             meetLink = 'https://meet.google.com/new';
@@ -143,7 +143,7 @@ self.addEventListener('push', event => {
             time,
             duration,
             phone: this.normalizePhone(phone),
-            meetLink: meetLink.trim(),
+            meetLink: meetLink,
             createdAt: new Date().toISOString()
         };
 
@@ -509,6 +509,20 @@ self.addEventListener('push', event => {
 
     normalizePhone(phone) {
         return phone.replace(/[^0-9]/g, '');
+    }
+
+    normalizeMeetLink(link) {
+        const trimmed = (link || '').trim();
+        if (!trimmed) {
+            return '';
+        }
+
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+            return trimmed;
+        }
+
+        // Handle pasted links like meet.google.com/xxx-xxxx-xxx
+        return `https://${trimmed}`;
     }
 
     buildWhatsAppLink(meeting) {
