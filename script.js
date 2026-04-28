@@ -203,9 +203,16 @@ self.addEventListener('push', event => {
                     return;
                 }
 
-                // SMS links usually only work on mobile devices
+                // SMS links should navigate in the same window on mobile
                 if (href.startsWith('sms:')) {
-                    this.showAlert('SMS links open on mobile devices. If you are on desktop, use WhatsApp or copy the link.');
+                    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+                    if (!isMobile) {
+                        this.showAlert('SMS links open on mobile devices. If you are on desktop, use WhatsApp or copy the link.');
+                    }
+
+                    window.location.href = href;
+                    e.preventDefault();
+                    return;
                 }
 
                 const opened = window.open(href, link.getAttribute('target') || '_blank', 'noopener');
@@ -214,6 +221,13 @@ self.addEventListener('push', event => {
                 }
 
                 e.preventDefault();
+            });
+        });
+
+        document.querySelectorAll('.copy-sms-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id, 10);
+                this.copySmsText(id);
             });
         });
     }
@@ -252,6 +266,7 @@ self.addEventListener('push', event => {
                 ${hasMeetLink ? `<a class="host-link" href="${this.escapeHtml(meeting.meetLink)}" target="_blank" rel="noopener">Open as Host</a>` : ''}
                 ${hasPhone && hasMeetLink ? `<a class="whatsapp-link" href="${this.buildWhatsAppLink(meeting)}" target="_blank" rel="noopener">Send WhatsApp</a>` : ''}
                 ${hasPhone && hasMeetLink ? `<a class="sms-link" href="${this.buildSmsLink(meeting)}">Send SMS</a>` : ''}
+                ${hasPhone && hasMeetLink ? `<button class="copy-sms-btn" type="button" data-id="${meeting.id}">Copy SMS</button>` : ''}
             </div>
             <div class="meeting-note">
                 Auto-admit is controlled by the host's Google Meet settings. Open as host to admit others.
@@ -527,16 +542,41 @@ self.addEventListener('push', event => {
 
     buildWhatsAppLink(meeting) {
         const phone = this.normalizePhone(meeting.phone || '');
-        const message = `Meeting: ${meeting.title}\nTime: ${meeting.date} ${meeting.time}\nDuration: ${meeting.duration} minutes\nJoin: ${meeting.meetLink}`;
+        const message = this.buildSmsMessage(meeting);
         const encoded = encodeURIComponent(message);
         return `https://wa.me/${phone}?text=${encoded}`;
     }
 
     buildSmsLink(meeting) {
         const phone = this.normalizePhone(meeting.phone || '');
-        const message = `Meeting: ${meeting.title}\nTime: ${meeting.date} ${meeting.time}\nDuration: ${meeting.duration} minutes\nJoin: ${meeting.meetLink}`;
+        const message = this.buildSmsMessage(meeting);
         const encoded = encodeURIComponent(message);
-        return `sms:${phone}?body=${encoded}`;
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const bodyParam = isIOS ? '&body=' : '?body=';
+        return `sms:${phone}${bodyParam}${encoded}`;
+    }
+
+    buildSmsMessage(meeting) {
+        return `Meeting: ${meeting.title}\nTime: ${meeting.date} ${meeting.time}\nDuration: ${meeting.duration} minutes\nJoin: ${meeting.meetLink}`;
+    }
+
+    copySmsText(meetingId) {
+        const meeting = this.meetings.find(item => item.id === meetingId);
+        if (!meeting) {
+            this.showAlert('Could not find meeting details to copy.');
+            return;
+        }
+
+        const message = this.buildSmsMessage(meeting);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(message).then(() => {
+                this.showAlert('SMS text copied. Open your SMS app and paste it.');
+            }).catch(() => {
+                this.showAlert('Copy failed. Please select and copy the text manually.');
+            });
+        } else {
+            this.showAlert(`Copy this SMS text:\n\n${message}`);
+        }
     }
 
     escapeHtml(text) {

@@ -596,6 +596,24 @@ button:active {
     box-shadow: 0 4px 12px rgba(253, 160, 133, 0.35);
 }
 
+.copy-sms-btn {
+    border: none;
+    background: linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%);
+    color: #2b2b2b;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 12px rgba(166, 193, 238, 0.35);
+}
+
+.copy-sms-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
+}
+
 .meeting-links a:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
